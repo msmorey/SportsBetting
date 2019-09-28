@@ -50,13 +50,36 @@ def create_games_rows(cur, year, week):
     for game in games:
         date = str(game.schedule['year']) + '-' + str(game.schedule['month']).zfill(2) + '-' + str(game.schedule['day']) + ' ' + pd.to_datetime(game.schedule['time']).strftime('%H:%M:00')
         try:
-            values.append("'" + str(game.gamekey) +"', '" + game.score_away + "', '" + game.score_home + "', '" + game.togo + "', '" + game.game_over + "'")
+            values.append("'" + str(game.gamekey) +"', '" + game.away + "', '" + game.home + "', '" + str(date)+ "'")
         except:
-            print(f"Couldn't update game number: {game.gamekey} for {game.away} @ {game.home}")
+            print(f"Couldn't create game number: {game.gamekey} for {game.away} @ {game.home}")
 
     for value in values:
         sql = (f"""
-        INSERT INTO games (id, away_score, home_score, time_remaining, )
+        INSERT INTO games (id, away_team, home_team, game_start)
+        VALUES ({value})
+        ON CONFLICT DO NOTHING;
+        """)
+        cur.execute(sql)
+
+    return "Success!"
+
+def update_games(cur, year, week):
+    games = nflgame.games(year, week=week)
+    values = []
+    errors = 0
+
+    for game in games:
+        try:
+            values.append("'" + str(game.gamekey) +"', '" + game.score_away + "', '" + game.score_home + "', '" + game.togo + "', '" + game.game_over + "'")
+        except:
+            errors += 1
+
+    print(f"Couldn't update {errors} game(s)")
+
+    for value in values:
+        sql = (f"""
+        INSERT INTO games (id, away_score, home_score, time_remaining, game_over)
         VALUES ({value})
         ON CONFLICT DO NOTHING;
         """)
@@ -65,38 +88,40 @@ def create_games_rows(cur, year, week):
 
     return "Success!"
 
-def update_games(cur, year, week):
-
 def run_the_script():
     engine, cur = setup()
-    year = input("What year is it?\n")
-    week = input("What NFL week is it?\n")
+    year = int(input("What year is it?\n"))
+    week = int(input("What NFL week is it?\n"))
 
     print("\nSetting up connections...\n\n")
-    create_game_rows(cur, year, week)
+    create_games_rows(cur, year, week)
     iter = 0
-    while iter < 4:
-        for i in range(20):
-            print('\r'),        # print is Ok, and comma is needed.
+    start = time.time()
+    elapsed = 0
+    while elapsed < 240:
+        for i in range(20):       # print is Ok, and comma is needed.
             time.sleep(.25)
-            if mod(i, 4) == 0:
-                p = "/"
-            elif mod(i, 4) == 1:
-                p = "|"
-            elif mod(i, 4) == 2:
-                p = "\\"
+            if i % 4 == 0:
+                p = "/   "
+            elif i % 4 == 1:
+                p = "|   "
+            elif i % 4 == 2:
+                p = "\\   "
             else:
-                p = "-"
-            print(p),
-            sys.stdout.flush()
+                p = "-   "
+            print(p, end = '\r')
+        print("\n")
         update_games(cur, year, week)
+        iter += 1
+        end = time.time()
+        elapsed = (end - start)/60
 
     engine.dispose()
     cur.close()
     print("Goodbye!")
     return None
 
-
+run_the_script()
 # populate_teams_table(engine)
 
 # END
