@@ -74,8 +74,8 @@ def run_the_script():
 
     print("\nSetting up connections...\n\n")
     create_game_rows(cur, year, week)
-
-    while True:
+    iter = 0
+    while iter < 4:
         for i in range(20):
             print('\r'),        # print is Ok, and comma is needed.
             time.sleep(.25)
@@ -87,13 +87,13 @@ def run_the_script():
                 p = "\\"
             else:
                 p = "-"
-            print(i),
+            print(p),
             sys.stdout.flush()
         update_games(cur, year, week)
 
-
     engine.dispose()
     cur.close()
+    print("Goodbye!")
     return None
 
 
