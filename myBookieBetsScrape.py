@@ -41,15 +41,11 @@ def setup():
 
 def setup_selenium():
     option = webdriver.ChromeOptions()
-    option.add_argument(" — incognito")
     browser = webdriver.Chrome(options=option)
     url = "https://engine.mybookie.ag/sports/open-bets"
     browser.get(url)
 
-    input("Press enter when on bet page:")
-    source = browser.page_source
-
-    return source
+    return browser
 
 def scrape_page(source):
     bet_keys = ({'date_open':['class="bet-placed"> Placed: ','</span>'], 'type':['bet_type_name text-uppercase"> ','</span>'],
@@ -110,7 +106,7 @@ def spread(x):
     else:
         points = None
         odds = x
-        wager = 'straight'
+        wager = 'win'
     return [points, odds, wager]
 
 def find_game_id(x, games):
@@ -132,17 +128,19 @@ def bet_type_parse(x):
         type = 'other'
     return type
 
+def intnull(x):
+    try:
+        out = str(int(x))
+    except:
+        out = '999'
+    return out
 
-def get_bets():
-    engine, cur = setup()
-    source = setup_selenium()
-    bets, bet_lines = scrape_page(source)
+def insert_bets(cur, bets):
+    values = []
+    errors = 0
 
     bets['date_open'] = pd.to_datetime(bets['date_open']).dt.date
     bets['type'] = bets['type'].apply(lambda x: bet_type_parse(x))
-    values = []
-    errors = 0
-    bets.columns
 
     for index, line in bets.iterrows():
         try:
@@ -155,13 +153,21 @@ def get_bets():
 
     for value in values:
         sql = (f"""
-        INSERT INTO open_bets (id, date_open, date_close, risk, type, win)
+        INSERT INTO open_bets AS o (id, date_open, date_close, risk, type, win)
         VALUES ({value})
-        ON CONFLICT DO NOTHING;
+        ON CONFLICT (id) DO UPDATE
+        SET id = o.id
+            ,date_open = EXCLUDED.date_open
+            ,date_close = EXCLUDED.date_close
+            ,risk = EXCLUDED.risk
+            ,type = EXCLUDED.type
+            ,win = EXCLUDED.win;
         """)
         cur.execute(sql)
 
+    return "Success!"
 
+def clean_bet_lines(engine, bet_lines):
     bet_lines.game_start = bet_lines.game_start.apply(lambda x: '2019 '+x)
     bet_lines.game_start = pd.to_datetime(bet_lines.game_start).dt.date
     # bet_lines.game_start = bet_lines.game_start.apply(lambda x: x.strftime('%Y-%M-%D'))
@@ -187,13 +193,21 @@ def get_bets():
     bet_lines['game_id'] = pd.to_numeric(bet_lines['game_id'], downcast = 'integer')
     bet_lines['points'] = bet_lines['points'].fillna('0')
     bet_lines['odds'] = bet_lines['odds'].apply(lambda x: re.findall(r'-?\d+', x)[0])
+    bet_lines['game_id'] = bet_lines.game_id.apply(lambda x: intnull(x))
+
+    return bet_lines
+
+def insert_bet_lines(cur, engine, bet_lines):
     values = []
     errors = 0
+
+    bet_lines = clean_bet_lines(engine, bet_lines)
+
     for index, line in bet_lines.iterrows():
-        try:
-            values.append("'" + str(line.bet_id) +"', '" + str(line.line_number) + "', '" + line.wager_type + "', '" + str(line.odds) + "', '" + str(int(line.game_id)) + "', '" + str(float(line.points)) + "', '" + str(line.team_id) + "', '" + str(line.team_long) + "'")
-        except:
-            errors += 1
+       try:
+            values.append("'" + str(line.bet_id) +"', '" + str(line.line_number) + "', '" + str(line.wager_type) + "', '" + str(line.odds) + "', '" + str(line.game_id) + "', '" + str(float(line.points)) + "', '" + str(line.team_id) + "', '" + str(line.team_long) + "'")
+       except:
+           errors += 1
 
     print(f"Couldn't update {errors} bet line(s)")
 
@@ -201,11 +215,42 @@ def get_bets():
         sql = (f"""
         INSERT INTO bet_lines (bet_id, line_number, wager_type, odds, game_id, points, team, team_long)
         VALUES ({value})
-        ON CONFLICT DO NOTHING;
+        ON CONFLICT (bet_id, line_number) DO UPDATE
+        SET bet_id = bet_lines.bet_id
+            ,line_number = EXCLUDED.line_number
+            ,wager_type = EXCLUDED.wager_type
+            ,odds = EXCLUDED.odds
+            ,game_id = EXCLUDED.game_id
+            ,points = EXCLUDED.points
+            ,team = EXCLUDED.team
+            ,team_long = EXCLUDED.team_long
         """)
         cur.execute(sql)
 
     return "Success!"
+
+def get_bets():
+    engine, cur = setup()
+    browser = setup_selenium()
+    input("Press enter when on bet page:")
+    source = browser.page_source
+    cont = 'y'
+    while cont == 'y':
+        bets, bet_lines = scrape_page(source)
+        insert_bets(cur, bets)
+
+        insert_bet_lines(cur, engine, bet_lines)
+        print("Finished page; navigate to next page.")
+        cont = input("Scrape another page? (y/n)\n")
+        if cont == 'y':
+            input("\nPress enter when on bet page:")
+            source = browser.page_source
+
+    cur.close()
+    engine.dispose()
+    print("Goodbye!")
+
+    return None
 
 get_bets()
 
@@ -215,6 +260,3 @@ get_bets()
 
 
 #TEST
-
-test = '-1'
-test.isnumeric()'

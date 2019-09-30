@@ -70,8 +70,9 @@ def update_games(cur, year, week):
     errors = 0
 
     for game in games:
+        date = str(game.schedule['year']) + '-' + str(game.schedule['month']).zfill(2) + '-' + str(game.schedule['day']) + ' ' + pd.to_datetime(game.schedule['time']).strftime('%H:%M:00')
         try:
-            values.append("'" + str(game.gamekey) +"', '" + game.score_away + "', '" + game.score_home + "', '" + game.togo + "', '" + game.game_over + "'")
+            values.append("'" + str(game.gamekey) +"', '" + str(game.away) +"', '" + str(game.home) +"', '" + str(date) + "', '" + str(game.score_away) + "', '" + str(game.score_home) + "', '" + str(game.togo) + "', '" + str(game.game_over()) + "'")
         except:
             errors += 1
 
@@ -79,9 +80,16 @@ def update_games(cur, year, week):
 
     for value in values:
         sql = (f"""
-        INSERT INTO games (id, away_score, home_score, time_remaining, game_over)
+        INSERT INTO games (id, away_team, home_team, game_start, away_score, home_score, time_remaining, game_over)
         VALUES ({value})
-        ON CONFLICT DO NOTHING;
+        ON CONFLICT (id) DO UPDATE SET
+            home_team = games.home_team
+            ,away_team = games.away_team
+            ,game_start = games.game_start
+            ,away_score = EXCLUDED.away_score
+            ,home_score = EXCLUDED.home_score
+            ,time_remaining = EXCLUDED.time_remaining
+            ,game_over = EXCLUDED.game_over;
         """)
         cur.execute(sql)
 
@@ -129,3 +137,6 @@ run_the_script()
 
 
 # TEST
+
+year = 2019
+week = 4
