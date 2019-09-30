@@ -84,7 +84,6 @@ def update_games(cur, year, week):
         ON CONFLICT DO NOTHING;
         """)
         cur.execute(sql)
-    print
 
     return "Success!"
 
