@@ -435,8 +435,9 @@ def get_bets():
 
     return None
 
-get_bets()
 
+if __name__ == "__main__":
+    get_bets()
 
 #END
 

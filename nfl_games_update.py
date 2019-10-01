@@ -128,8 +128,9 @@ def run_the_script():
     print("Goodbye!")
     return None
 
-run_the_script()
-# populate_teams_table(engine)
+
+if __name__ == "main":
+    run_the_script()
 
 # END
 
@@ -137,6 +138,3 @@ run_the_script()
 
 
 # TEST
-
-year = 2019
-week = 4
