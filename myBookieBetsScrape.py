@@ -258,7 +258,7 @@ def insert_open_bet_lines(cur, engine, bet_lines):
 
     for index, line in bet_lines.iterrows():
        try:
-            values.append("'" + str(line.bet_id) +"', '" + str(line.line_number) + "', '" + str(line.wager_type) + "', '" + str(line.odds) + "', '" + str(line.game_id) + "', '" + str(float(line.points)) + "', '" + str(line.team_id) + "', '" + str(line.team_long) + "'")
+            values.append("'" + str(line.bet_id) +"', '" + str(line.line_number) + "', '" + str(line.wager_type) + "', '" + str(line.odds) + "', '" + str(line.game_id) + "', '" + str(float(line.points.replace('½','.5'))) + "', '" + str(line.team_id) + "', '" + str(line.team_long) + "'")
        except:
            errors += 1
 
@@ -364,6 +364,9 @@ def update_closed_bet_lines(cur, engine, bet_lines):
     errors = 0
 
     bet_lines = clean_closed_bet_lines(engine, bet_lines)
+    bet_lines[bet_lines['bet_id'] =='72831806']
+
+    values
     for index, line in bet_lines.iterrows():
        try:
             values.append([str(line.bet_id), str(line.line_number), str(line.wager_type), str(line.odds), str(line.game_id), str(float(line.points.replace('½', '.5'))), str(line.team_id), str(line.team_long), str(line.won)])
@@ -384,7 +387,7 @@ def update_closed_bet_lines(cur, engine, bet_lines):
             """
         else:
             try:
-                line = pd.read_sql(f"SELECT COALESCE(MAX(line_number), 0) AS line FROM bet_lines WHERE bet_id ={int(insert[0])}", engine).iloc[0].line + 1
+                line = pd.read_sql(f"SELECT COALESCE(MAX(line_number), 0) AS line FROM bet_lines WHERE bet_id ={int(value[0])}", engine).iloc[0].line + 1
             except:
                 line = 1
             sql = (f"""
@@ -444,10 +447,6 @@ if __name__ == "__main__":
 
 
 #TEST
-
-
-
-
 
 
 

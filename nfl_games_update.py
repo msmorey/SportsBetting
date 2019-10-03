@@ -69,10 +69,17 @@ def update_games(cur, year, week):
     values = []
     errors = 0
 
+    game = games[0]
+
+
     for game in games:
         date = str(game.schedule['year']) + '-' + str(game.schedule['month']).zfill(2) + '-' + str(game.schedule['day']) + ' ' + pd.to_datetime(game.schedule['time']).strftime('%H:%M:00')
         try:
-            values.append("'" + str(game.gamekey) +"', '" + str(game.away) +"', '" + str(game.home) +"', '" + str(date) + "', '" + str(game.score_away) + "', '" + str(game.score_home) + "', '" + str(game.togo) + "', '" + str(game.game_over()) + "'")
+            togo = game.togo
+        except:
+            togo = 'Null'
+        try:
+            values.append("'" + str(game.gamekey) +"', '" + str(game.away) +"', '" + str(game.home) +"', '" + str(date) + "', '" + str(game.score_away) + "', '" + str(game.score_home) + "', " + str(togo) + ", '" + str(game.game_over()) + "'")
         except:
             errors += 1
 
@@ -127,7 +134,6 @@ def run_the_script():
     cur.close()
     print("Goodbye!")
     return None
-
 
 if __name__ == "main":
     run_the_script()
