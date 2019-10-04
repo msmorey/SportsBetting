@@ -220,12 +220,24 @@ def insert_bets(cur, bets):
 
     return "Success!"
 
+def team_and_odds_split(x):
+    spaces = x.split()
+    if spaces[1] == 'TOTAL':
+        team = None
+        odds_wager = spaces[2]
+    else:
+        team = ' '.join(spaces[1:-1]).lower().title()
+        odds_wager = spaces[-1]
+    return [team, odds_wager]
+
 def clean_bet_lines(engine, bet_lines):
     bet_lines.game_start = bet_lines.game_start.apply(lambda x: '2019 '+x)
     bet_lines.game_start = pd.to_datetime(bet_lines.game_start).dt.date
     # bet_lines.game_start = bet_lines.game_start.apply(lambda x: x.strftime('%Y-%M-%D'))
-    bet_lines['team'] = bet_lines.team_and_odds.apply(lambda x: ' '.join(x.split()[1:-1]).lower().title())
-    bet_lines['odds_wager'] = bet_lines.team_and_odds.apply(lambda x: x.split()[-1])
+    bet_lines['team'] = bet_lines.team_and_odds.apply(lambda x: team_and_odds_split(x)[0])
+    bet_lines['odds_wager'] = bet_lines.team_and_odds.apply(lambda x: team_and_odds_split(x)[1])
+
+    bet_lines
 
     teams = pd.read_sql("SELECT * FROM teams", engine)
     teams = teams.rename(columns = {'id':'team_id'})
@@ -246,6 +258,8 @@ def clean_bet_lines(engine, bet_lines):
     bet_lines['game_id'] = pd.to_numeric(bet_lines['game_id'], downcast = 'integer')
     bet_lines['points'] = bet_lines['points'].fillna('0')
     bet_lines['odds'] = bet_lines['odds'].apply(lambda x: re.findall(r'-?\d+', x)[0])
+
+    bet_lines
     bet_lines['game_id'] = bet_lines.game_id.apply(lambda x: intnull(x))
 
     return bet_lines
@@ -420,8 +434,12 @@ def get_bets():
     print("Ok! I've got your open bets.")
     cont = input("Would you like to import closed bets?\n")
     while cont == 'y':
-        input("Press enter when on the closed bets page you wish to import:")
+        # input("Press enter when on the closed bets page you wish to import:")
         source = browser.page_source
+        with open('source.html', 'wb') as f:
+            f.write(source.encode('utf8'))
+        with open('source.html', 'r', encoding='utf8') as f:
+            source = f.read()
         bets, bet_lines = scrape_closed_bets_page(source)
         update_closed_bets(cur, engine, bets)
 
@@ -443,7 +461,6 @@ if __name__ == "__main__":
     get_bets()
 
 #END
-
 
 
 #TEST
