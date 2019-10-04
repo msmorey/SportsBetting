@@ -148,20 +148,27 @@ def scrape_closed_bets_page(source):
     return [bets, bet_lines]
 
 def spread(x):
-    list = ['-' + y for y in x[1:].split('-')]
-    list_plus = ['+' + y for y in x[1:].split('+')]
-    if len(list) == 2:
-        points = list[0]
-        odds = list[1]
+    x = x.replace('½', '.5').replace('EV', '+100')
+    total_nums = x.count('-') + x.count('+')
+    if total_nums == 2:
+        odds_index = x[1:].find('-') + 1 if x[1:].find('+') == -1 else x[1:].find('+') + 1
+
         wager = 'spread'
-    elif len(list_plus) == 2:
-        points = list_plus[0]
-        odds = list_plus[1]
-        wager = 'spread'
+        odds = x[odds_index:]
+        points = x[:odds_index]
+
+    elif x[0] in ['o', 'u']:
+        odds_index = x[1:].find('-') + 1 if x[1:].find('+') == -1 else x[1:].find('+') + 1
+
+        wager = 'over' if x[0] == 'o' else 'under'
+        odds = x[odds_index:]
+        points = x[1:odds_index]
+
     else:
-        points = None
+        wager = 'straight'
         odds = x
-        wager = 'win'
+        points = None
+
     return [points, odds, wager]
 
 def find_game_id(x, games):
@@ -223,7 +230,7 @@ def insert_bets(cur, bets):
 def team_and_odds_split(x):
     spaces = x.split()
     if spaces[1] == 'TOTAL':
-        team = None
+        team = x.split("(")[1].split('vrs')[0].lower().title()
         odds_wager = spaces[2]
     else:
         team = ' '.join(spaces[1:-1]).lower().title()
@@ -233,11 +240,9 @@ def team_and_odds_split(x):
 def clean_bet_lines(engine, bet_lines):
     bet_lines.game_start = bet_lines.game_start.apply(lambda x: '2019 '+x)
     bet_lines.game_start = pd.to_datetime(bet_lines.game_start).dt.date
-    # bet_lines.game_start = bet_lines.game_start.apply(lambda x: x.strftime('%Y-%M-%D'))
     bet_lines['team'] = bet_lines.team_and_odds.apply(lambda x: team_and_odds_split(x)[0])
     bet_lines['odds_wager'] = bet_lines.team_and_odds.apply(lambda x: team_and_odds_split(x)[1])
 
-    bet_lines
 
     teams = pd.read_sql("SELECT * FROM teams", engine)
     teams = teams.rename(columns = {'id':'team_id'})
@@ -257,7 +262,7 @@ def clean_bet_lines(engine, bet_lines):
     bet_lines['game_id'] = pd.to_numeric(bet_lines.apply(lambda x: find_game_id(x, games), axis = 1), downcast = 'integer')
     bet_lines['game_id'] = pd.to_numeric(bet_lines['game_id'], downcast = 'integer')
     bet_lines['points'] = bet_lines['points'].fillna('0')
-    bet_lines['odds'] = bet_lines['odds'].apply(lambda x: re.findall(r'-?\d+', x)[0])
+    # bet_lines['odds'] = bet_lines['odds'].apply(lambda x: re.findall(r'-?\d+', x)[0])
 
     bet_lines
     bet_lines['game_id'] = bet_lines.game_id.apply(lambda x: intnull(x))
@@ -464,7 +469,11 @@ if __name__ == "__main__":
 
 
 #TEST
+x = 'u44½-110'
+list = ['-' + y for y in x[1:].split('-')]
+list_plus = ['+' + y for y in x[1:].split('+')]
 
 
-
+list
+list_plus
 #
