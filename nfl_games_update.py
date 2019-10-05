@@ -102,7 +102,7 @@ def update_games(cur, year, week):
 
     return "Success!"
 
-def run_the_script():
+def loop_script():
     engine, cur = setup()
     year = int(input("What year is it?\n"))
     week = int(input("What NFL week is it?\n"))
@@ -135,6 +135,10 @@ def run_the_script():
     print("Goodbye!")
     return None
 
+def run_the_script():
+    engine, cur = setup()
+    year = int(input("What year is it?\n"))
+    week = int(input("What NFL week is it?\n"))
 if __name__ == "main":
     run_the_script()
 

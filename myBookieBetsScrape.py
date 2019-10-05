@@ -19,6 +19,7 @@ import configparser
 import time
 import sys
 import re
+import string
 
 
 def setup():
@@ -209,8 +210,11 @@ def insert_bets(cur, bets):
             values.append("'" + str(line.id) +"', '" + str(line.date_open) + "', '" + str(line.date_open) + "', '" + str(line.risk) + "', '" + str(line.type) + "', '" + str(line.win) + "'")
         except:
             errors += 1
-    print(f"Couldn't update {errors} bet(s)")
-
+    if errors == 0:
+        print("All bets parsed!")
+    else:
+        print(f"Couldn't parse {errors} bet(s)")
+    errors = 0
     for value in values:
         sql = (f"""
         INSERT INTO open_bets AS o (id, date_open, date_close, risk, type, win)
@@ -225,16 +229,23 @@ def insert_bets(cur, bets):
         """)
         cur.execute(sql)
 
+    if errors == 0:
+        print("All bets updated!")
+    else:
+        print(f"Couldn't update {errors} bet(s)")
+
     return "Success!"
 
 def team_and_odds_split(x):
+
     spaces = x.split()
     if spaces[1] == 'TOTAL':
-        team = x.split("(")[1].split('vrs')[0].lower().title()
+        team = string.capwords(x.split("(")[1].split('vrs')[0].lower().strip())
         odds_wager = spaces[2]
     else:
-        team = ' '.join(spaces[1:-1]).lower().title()
+        team = string.capwords(' '.join(spaces[1:-1]).lower().strip())
         odds_wager = spaces[-1]
+
     return [team, odds_wager]
 
 def clean_bet_lines(engine, bet_lines):
@@ -242,7 +253,6 @@ def clean_bet_lines(engine, bet_lines):
     bet_lines.game_start = pd.to_datetime(bet_lines.game_start).dt.date
     bet_lines['team'] = bet_lines.team_and_odds.apply(lambda x: team_and_odds_split(x)[0])
     bet_lines['odds_wager'] = bet_lines.team_and_odds.apply(lambda x: team_and_odds_split(x)[1])
-
 
     teams = pd.read_sql("SELECT * FROM teams", engine)
     teams = teams.rename(columns = {'id':'team_id'})
@@ -262,9 +272,10 @@ def clean_bet_lines(engine, bet_lines):
     bet_lines['game_id'] = pd.to_numeric(bet_lines.apply(lambda x: find_game_id(x, games), axis = 1), downcast = 'integer')
     bet_lines['game_id'] = pd.to_numeric(bet_lines['game_id'], downcast = 'integer')
     bet_lines['points'] = bet_lines['points'].fillna('0')
+    bet_lines['team_id'] = bet_lines['team_id'].fillna('NONE')
     # bet_lines['odds'] = bet_lines['odds'].apply(lambda x: re.findall(r'-?\d+', x)[0])
 
-    bet_lines
+    bet_lines.loc[bet_lines['wager_type'].isin(['under', 'over']), 'team'] = 'NONE'
     bet_lines['game_id'] = bet_lines.game_id.apply(lambda x: intnull(x))
 
     return bet_lines
@@ -281,8 +292,12 @@ def insert_open_bet_lines(cur, engine, bet_lines):
        except:
            errors += 1
 
-    print(f"Couldn't update {errors} bet line(s)")
+    if errors == 0:
+        print("All bet lines parsed!")
+    else:
+        print(f"Couldn't parse {errors} bet line(s)")
 
+    errors = 0
     for value in values:
         sql = (f"""
         INSERT INTO bet_lines (bet_id, line_number, wager_type, odds, game_id, points, team, team_long)
@@ -299,6 +314,11 @@ def insert_open_bet_lines(cur, engine, bet_lines):
         """)
         cur.execute(sql)
 
+    if errors == 0:
+        print("All bet lines updated!")
+    else:
+        print(f"Couldn't update {errors} bet line(s).")
+
     return "Success!"
 
 def winloss(x):
@@ -310,7 +330,6 @@ def winloss(x):
 def update_closed_bets(cur, engine, bets):
 
     bets['won'] = bets['won'].apply(lambda x: winloss(x))
-
     values = []
     errors = 0
     bets['date_open'] = pd.to_datetime(bets['date_open']).dt.date
@@ -321,8 +340,12 @@ def update_closed_bets(cur, engine, bets):
             values.append("'" + str(line.id) +"', '" + str(line.date_open) + "', '" + str(line.date_open) + "', '" + str(line.risk) + "', '" + str(line.type) + "', '" + str(line.win) + "', '" + str(line.won) + "'")
         except:
             errors += 1
-    print(f"Couldn't update {errors} bet(s)")
 
+    if errors == 0:
+        print("All bets parsed!")
+    else:
+        print(f"Couldn't parse {errors} bet(s)")
+    errors = 0
     for value in values:
         sql = (f"""
         INSERT INTO open_bets AS o (id, date_open, date_close, risk, type, win, won)
@@ -339,20 +362,36 @@ def update_closed_bets(cur, engine, bets):
         try:
             cur.execute(sql)
         except:
-            print(value)
+            errors += 1
+
+    if errors == 0:
+        print("All bets updated!")
+    else:
+        print(f"Couldn't update {errors} bet(s).")
+
+    return None
 
 def find_game_with_team_date(x):
     id = int(x.bet_id)
 
     return out
 
+def team_odds_result_parse(x):
+    if x.find('vrs') != -1:
+        team = string.capwords(x.split('(')[1].split(' vrs')[0].lower().strip())
+        won = winloss(x.split()[-1])
+        odds_wager = x.split()[2]
+    else:
+        team = string.capwords(' '.join(x.split()[1:-2]).lower())
+        won = winloss(x.split()[-1])
+        odds_wager = x.split()[-2]
+    return [team, won, odds_wager]
+
 def clean_closed_bet_lines(engine, bet_lines):
-
-    bet_lines['team'] = bet_lines.team_odds_result.apply(lambda x: ' '.join(x.split()[1:-2]).lower().title())
-    bet_lines['won'] = bet_lines.team_odds_result.apply(lambda x: winloss(x.split()[-1]))
-    bet_lines['odds_wager'] = bet_lines.team_odds_result.apply(lambda x: x.split()[-2])
+    bet_lines['team'] = bet_lines.team_odds_result.apply(lambda x: team_odds_result_parse(x)[0])
+    bet_lines['won'] = bet_lines.team_odds_result.apply(lambda x: team_odds_result_parse(x)[1])
+    bet_lines['odds_wager'] = bet_lines.team_odds_result.apply(lambda x: team_odds_result_parse(x)[2])
     bet_lines['game_start'] = pd.to_datetime(bet_lines.bet_date).dt.date
-
 
     teams = pd.read_sql("SELECT * FROM teams", engine)
     teams = teams.rename(columns = {'id':'team_id'})
@@ -362,6 +401,7 @@ def clean_closed_bet_lines(engine, bet_lines):
     bet_lines['odds'] = bet_lines.odds_wager.apply(lambda x: spread(x)[1])
     bet_lines['wager'] = bet_lines.odds_wager.apply(lambda x: spread(x)[2])
 
+    bet_lines
     bet_lines = bet_lines.drop(['odds_wager'], axis=1)
     bet_lines = bet_lines.rename(columns = {'team': 'team_long', 'id': 'bet_id', 'line': 'line_number', 'wager': 'wager_type'})
 
@@ -371,9 +411,10 @@ def clean_closed_bet_lines(engine, bet_lines):
     bet_lines['game_id'] = pd.to_numeric(bet_lines.apply(lambda x: find_game_id(x, games), axis = 1), downcast = 'integer')
     bet_lines['game_id'] = pd.to_numeric(bet_lines['game_id'], downcast = 'integer')
     bet_lines['points'] = bet_lines['points'].fillna('0')
-    bet_lines['odds'] = bet_lines['odds'].apply(lambda x: re.findall(r'-?\d+', x)[0])
+    bet_lines['team_id'] = bet_lines['team_id'].fillna('NONE')
+    # bet_lines['odds'] = bet_lines['odds'].apply(lambda x: re.findall(r'-?\d+', x)[0])
     bet_lines['game_id'] = bet_lines.game_id.apply(lambda x: intnull(x))
-    bet_lines
+    bet_lines.loc[bet_lines['wager_type'].isin(['under', 'over']), 'team'] = 'NONE'
 
     return bet_lines
 
@@ -383,9 +424,7 @@ def update_closed_bet_lines(cur, engine, bet_lines):
     errors = 0
 
     bet_lines = clean_closed_bet_lines(engine, bet_lines)
-    bet_lines[bet_lines['bet_id'] =='72831806']
 
-    values
     for index, line in bet_lines.iterrows():
        try:
             values.append([str(line.bet_id), str(line.line_number), str(line.wager_type), str(line.odds), str(line.game_id), str(float(line.points.replace('½', '.5'))), str(line.team_id), str(line.team_long), str(line.won)])
@@ -393,10 +432,13 @@ def update_closed_bet_lines(cur, engine, bet_lines):
            print(line)
            errors += 1
 
-    print(f"Couldn't parse {errors} bet line(s)")
+    if errors == 0:
+        print("All bet lines parsed!")
+    else:
+        print(f"Couldn't parse {errors} bet line(s)")
 
+    errors =0
     for value in values:
-        errors =0
         exists = pd.read_sql(f"SELECT COUNT(bet_id) as count FROM bet_lines WHERE bet_id = {value[0]} and team = '{value[6]}'", engine).iloc[0]['count']
         if exists >0:
             sql = f"""
@@ -417,8 +459,10 @@ def update_closed_bet_lines(cur, engine, bet_lines):
             cur.execute(sql)
         except:
             errors += 1
-
-    print(f"Couldn't update {errors} bet line(s)")
+    if errors == 0:
+        print("All bet lines updated!")
+    else:
+        print(f"Couldn't update {errors} bet line(s)")
 
     return "Success!"
 
@@ -439,21 +483,14 @@ def get_bets():
     print("Ok! I've got your open bets.")
     cont = input("Would you like to import closed bets?\n")
     while cont == 'y':
-        # input("Press enter when on the closed bets page you wish to import:")
+        input("Press enter when on the closed bets page you wish to import:")
         source = browser.page_source
-        with open('source.html', 'wb') as f:
-            f.write(source.encode('utf8'))
-        with open('source.html', 'r', encoding='utf8') as f:
-            source = f.read()
         bets, bet_lines = scrape_closed_bets_page(source)
         update_closed_bets(cur, engine, bets)
 
         update_closed_bet_lines(cur, engine, bet_lines)
         print("Finished page; navigate to next page.")
         cont = input("Scrape another page? (y/n)\n")
-
-
-
 
     cur.close()
     engine.dispose()
@@ -469,11 +506,12 @@ if __name__ == "__main__":
 
 
 #TEST
-x = 'u44½-110'
-list = ['-' + y for y in x[1:].split('-')]
-list_plus = ['+' + y for y in x[1:].split('+')]
 
 
-list
-list_plus
+
+
+
+
+
+
 #
