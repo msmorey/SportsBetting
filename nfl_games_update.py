@@ -48,7 +48,7 @@ def create_games_rows(cur, year, week):
     values = []
 
     for game in games:
-        date = str(game.schedule['year']) + '-' + str(game.schedule['month']).zfill(2) + '-' + str(game.schedule['day']) + ' ' + pd.to_datetime(game.schedule['time']).strftime('%H:%M:00')
+        date = str(game.schedule['year']) + '-' + str(game.schedule['month']).zfill(2) + '-' + str(game.schedule['day']) + ' ' + (pd.to_datetime(game.schedule['time'] + game.schedule['meridiem']) - pd.Timedelta(hours = 1)).strftime('%H:%M:00')
         try:
             values.append("'" + str(game.gamekey) +"', '" + game.away + "', '" + game.home + "', '" + str(date)+ "'")
         except:
@@ -68,31 +68,35 @@ def update_games(cur, year, week):
     games = nflgame.games(year, week=week)
     values = []
     errors = 0
-
-    game = games[0]
-
-
     for game in games:
-        date = str(game.schedule['year']) + '-' + str(game.schedule['month']).zfill(2) + '-' + str(game.schedule['day']) + ' ' + pd.to_datetime(game.schedule['time']).strftime('%H:%M:00')
+        date = str(game.schedule['year']) + '-' + str(game.schedule['month']).zfill(2) + '-' + str(game.schedule['day']) + ' ' + (pd.to_datetime(game.schedule['time'] + game.schedule['meridiem']) - pd.Timedelta(hours = 1)).strftime('%H:%M:00')
+        if game.game_over() == True:
+            quarter = 4
+        else:
+            try:
+                quarter = int(game.time.qtr)
+            except:
+                quarter = 0
         try:
-            togo = game.togo
+            minutes, seconds = [int(x) for x in game.time.clock.split(':')]
+            time_remaining = (minutes *60) + seconds + ((15*(4-quarter)) * 60)
         except:
-            togo = 'Null'
+            time_remaining = game.time.clock
+
         try:
-            values.append("'" + str(game.gamekey) +"', '" + str(game.away) +"', '" + str(game.home) +"', '" + str(date) + "', '" + str(game.score_away) + "', '" + str(game.score_home) + "', " + str(togo) + ", '" + str(game.game_over()) + "'")
+            values.append("'" + str(game.gamekey) +"', '" + str(game.away) +"', '" + str(game.home) +"', '" + str(date) + "', '" + str(game.score_away) + "', '" + str(game.score_home) + "', '" + str(time_remaining) + "', '" + str(game.game_over())+ "', '" + str(quarter) + "'")
         except:
             errors += 1
-
     print(f"Couldn't update {errors} game(s)")
 
     for value in values:
         sql = (f"""
-        INSERT INTO games (id, away_team, home_team, game_start, away_score, home_score, time_remaining, game_over)
+        INSERT INTO games (id, away_team, home_team, game_start, away_score, home_score, time_remaining, game_over, quarter)
         VALUES ({value})
         ON CONFLICT (id) DO UPDATE SET
             home_team = games.home_team
             ,away_team = games.away_team
-            ,game_start = games.game_start
+            ,game_start = EXCLUDED.game_start
             ,away_score = EXCLUDED.away_score
             ,home_score = EXCLUDED.home_score
             ,time_remaining = EXCLUDED.time_remaining
@@ -102,7 +106,7 @@ def update_games(cur, year, week):
 
     return "Success!"
 
-def loop_script():
+def run_the_script():
     engine, cur = setup()
     year = int(input("What year is it?\n"))
     week = int(input("What NFL week is it?\n"))
@@ -135,15 +139,11 @@ def loop_script():
     print("Goodbye!")
     return None
 
-def run_the_script():
-    engine, cur = setup()
-    year = int(input("What year is it?\n"))
-    week = int(input("What NFL week is it?\n"))
-if __name__ == "main":
+if __name__ == '__main__':
     run_the_script()
+# populate_teams_table(engine)
 
-# END
-
+game.schedule
 
 
 

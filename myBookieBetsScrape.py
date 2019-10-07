@@ -348,8 +348,8 @@ def update_closed_bets(cur, engine, bets):
     errors = 0
     for value in values:
         sql = (f"""
-        INSERT INTO open_bets AS o (id, date_open, date_close, risk, type, win, won)
-        VALUES ({value})
+        INSERT INTO open_bets AS o (id, date_open, date_close, risk, type, win, won, closed)
+        VALUES ({value}, True)
         ON CONFLICT (id) DO UPDATE
         SET id = o.id
             ,date_open = o.date_open
@@ -357,7 +357,8 @@ def update_closed_bets(cur, engine, bets):
             ,risk = o.risk
             ,type = o.type
             ,win = o.win
-            ,won = EXCLUDED.won;
+            ,won = EXCLUDED.won
+            ,closed = True;
         """)
         try:
             cur.execute(sql)
