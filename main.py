@@ -12,10 +12,11 @@ from tabulate import tabulate
 def loop_scores(cur, engine, year, week):
     start = time.time()
     elapsed = 0
+    old_dfs = []
+
     while elapsed < 240:
         os.system('cls' if os.name == 'nt' else 'clear')
         print("Press 'enter' to end script or update bets\n\n")
-        old_dfs = []
         while len(old_dfs) >5:
             del old_dfs[0]
         if len(old_dfs) > 0:
@@ -23,8 +24,13 @@ def loop_scores(cur, engine, year, week):
         else:
             old_df = None
         df = dashboard.retrieve_dash(engine, old_df)
-        print(df)
-        old_dfs.append(df)
+        old_dfs.append(df[['delta', 'team', 'points']].copy())
+        df = df.rename(columns = {'delta': 'n_delta', 'f_delta':'delta', 'time_remaining':'time'})
+        try:
+            print(tabulate(df[['score', 'time', 'yardline', 'team', 'points', 'delta', 'closeness']]\
+            .sort_values(by = ['closeness'], ascending = False), headers = 'keys', showindex = False, tablefmt = 'fancy_grid'))
+        except KeyError:
+            print('No games found!')
         for i in range(20):
             time.sleep(.25)
             if i % 4 == 0:
@@ -69,3 +75,18 @@ def meat_and_potatoes():
 
 if __name__ == '__main__':
     meat_and_potatoes()
+
+# END
+# TEST
+tabulate(df[['score', 'time_remaining', 'team', 'points', 'delta', 'closeness']]\
+.sort_values(by = ['closeness'], ascending = False), headers = 'keys', showindex = False, tablefmt = 'grid').split('\n')
+
+
+
+
+
+
+
+
+
+# END TEST

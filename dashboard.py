@@ -34,22 +34,46 @@ def colors(row):
         x = float(row['delta'])
         y = float(row['old_delta'])
     except:
-        x = row
+        x = float(row)
         y = 0
     if x > y:
-        color = Fore.GREEN
+        color = Fore.GREEN + Style.BRIGHT
     elif x == y:
         color = Style.RESET_ALL
     else:
-        color = Fore.RED
+        color = Fore.RED + Style.BRIGHT
     return color + str(x) + Style.RESET_ALL
 
 
 def retrieve_dash(engine, old_df = None):
     df = pd.read_sql("SELECT * FROM game_dashboard", engine)
-    if old_df == None:
+    if not isinstance(old_df, pd.DataFrame):
         old_df = df.copy()
-    old_df = old_df.rename(columns = {'delta': 'old_delta'})
-    df = pd.concat([old_df['old_delta'], df], axis=1)
-    df['delta'] = df.apply(colors, axis = 1)
+    if len(df) > 0:
+        old_df = old_df.rename(columns = {'delta': 'old_delta'})
+        df = pd.merge(old_df[['old_delta', 'team', 'points']], df, on = ['team', 'points'], how = 'left')
+        try:
+            df['f_delta'] = df.apply(colors, axis = 1)
+        except ValueError:
+            pass
     return df
+
+
+# END
+# TEST
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# END TEST
