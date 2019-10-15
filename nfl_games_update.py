@@ -82,16 +82,32 @@ def update_games(cur, year, week):
             time_remaining = (minutes *60) + seconds + ((15*(4-quarter)) * 60)
         except:
             time_remaining = game.time.clock
+        try:
+            yardline = str(game.data['yl'])
+        except:
+            yardline = ''
+        try:
+            posteam = str(game.data['posteam'])
+        except:
+            posteam = ''
 
         try:
-            values.append("'" + str(game.gamekey) +"', '" + str(game.away) +"', '" + str(game.home) +"', '" + str(date) + "', '" + str(game.score_away) + "', '" + str(game.score_home) + "', '" + str(time_remaining) + "', '" + str(game.game_over())+ "', '" + str(quarter) + "'")
+            (values.append("'" + str(game.gamekey) +"', '" + str(game.away) +"', '" + \
+            str(game.home) +"', '" + str(date) + "', '" + str(game.score_away) \
+            + "', '" + str(game.score_home) + "', '" + str(time_remaining) + "', '" + \
+            str(game.game_over())+ "', '" + str(quarter) + "','" + posteam\
+             + "','" + yardline +"'"))
         except:
             errors += 1
-    print(f"Couldn't update {errors} game(s)")
+    if errors == 0:
+        print("All games updated!")
+    else:
+        print(f"Couldn't update {errors} game(s)")
 
     for value in values:
         sql = (f"""
-        INSERT INTO games (id, away_team, home_team, game_start, away_score, home_score, time_remaining, game_over, quarter)
+        INSERT INTO games   (id, away_team, home_team, game_start, away_score, home_score,
+                            time_remaining, game_over, quarter, posteam, yardline)
         VALUES ({value})
         ON CONFLICT (id) DO UPDATE SET
             home_team = games.home_team
@@ -100,51 +116,27 @@ def update_games(cur, year, week):
             ,away_score = EXCLUDED.away_score
             ,home_score = EXCLUDED.home_score
             ,time_remaining = EXCLUDED.time_remaining
-            ,game_over = EXCLUDED.game_over;
+            ,game_over = EXCLUDED.game_over
+            ,quarter = EXCLUDED.quarter
+            ,posteam = EXCLUDED.posteam
+            ,yardline = EXCLUDED.yardline;
         """)
         cur.execute(sql)
+    cur.execute("UPDATE games SET posteam = NULL WHERE posteam = ''; UPDATE games SET yardline = NULL WHERE yardline = ''")
 
     return "Success!"
 
-def run_the_script():
-    engine, cur = setup()
-    year = int(input("What year is it?\n"))
-    week = int(input("What NFL week is it?\n"))
-
-    print("\nSetting up connections...\n\n")
-    create_games_rows(cur, year, week)
-    iter = 0
-    start = time.time()
-    elapsed = 0
-    while elapsed < 240:
-        for i in range(20):       # print is Ok, and comma is needed.
-            time.sleep(.25)
-            if i % 4 == 0:
-                p = "/   "
-            elif i % 4 == 1:
-                p = "|   "
-            elif i % 4 == 2:
-                p = "\\   "
-            else:
-                p = "-   "
-            print(p, end = '\r')
-        print("\n")
-        update_games(cur, year, week)
-        iter += 1
-        end = time.time()
-        elapsed = (end - start)/60
-
-    engine.dispose()
-    cur.close()
-    print("Goodbye!")
-    return None
 
 if __name__ == '__main__':
-    run_the_script()
-# populate_teams_table(engine)
+    print('Not a standalone script')
 
-game.schedule
-
+    # populate_teams_table(engine)
+    engine, cur = setup()
+    update_games(cur, 2019, 6)
 
 
 # TEST
+
+games = nflgame.games(2019, 6)
+len(games)
+game = games[13]

@@ -149,7 +149,7 @@ def scrape_closed_bets_page(source):
     return [bets, bet_lines]
 
 def spread(x):
-    x = x.replace('½', '.5').replace('EV', '+100')
+    x = x.replace('½', '.5').replace('EV', '+100').replace('PK', '+0')
     total_nums = x.count('-') + x.count('+')
     if total_nums == 2:
         odds_index = x[1:].find('-') + 1 if x[1:].find('+') == -1 else x[1:].find('+') + 1
@@ -467,10 +467,11 @@ def update_closed_bet_lines(cur, engine, bet_lines):
 
     return "Success!"
 
-def get_bets():
-    engine, cur = setup()
-    browser = setup_selenium()
-    cont = 'y'
+
+def get_bets(engine, cur, browser):
+    # engine, cur = setup()
+    # browser = setup_selenium()
+    cont = input('Would you like to import open bets? (y/n)\n')
     while cont == 'y':
         input("Press enter when on the open bets page you wish to import:")
         source = browser.page_source
@@ -482,7 +483,7 @@ def get_bets():
         cont = input("Scrape another page? (y/n)\n")
 
     print("Ok! I've got your open bets.")
-    cont = input("Would you like to import closed bets?\n")
+    cont = input("Would you like to import closed bets? (y/n)\n")
     while cont == 'y':
         input("Press enter when on the closed bets page you wish to import:")
         source = browser.page_source
@@ -493,15 +494,18 @@ def get_bets():
         print("Finished page; navigate to next page.")
         cont = input("Scrape another page? (y/n)\n")
 
-    cur.close()
-    engine.dispose()
+    # cur.close()
+    # engine.dispose()
     print("Goodbye!")
 
     return None
 
 
 if __name__ == "__main__":
-    get_bets()
+    browser = setup_selenium()
+    get_bets(browser)
+    cur.close()
+    engine.dispose()
 
 #END
 
