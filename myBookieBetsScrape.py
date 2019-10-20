@@ -204,6 +204,9 @@ def insert_bets(cur, bets):
 
     bets['date_open'] = pd.to_datetime(bets['date_open']).dt.date
     bets['type'] = bets['type'].apply(lambda x: bet_type_parse(x))
+    bets['win'] = pd.to_numeric(bets['win'].str.replace(',',''))
+    bets['risk'] = pd.to_numeric(bets['risk'].str.replace(',',''))
+
 
     for index, line in bets.iterrows():
         try:
@@ -277,7 +280,6 @@ def clean_bet_lines(engine, bet_lines):
 
     bet_lines.loc[bet_lines['wager_type'].isin(['under', 'over']), 'team'] = 'NONE'
     bet_lines['game_id'] = bet_lines.game_id.apply(lambda x: intnull(x))
-
     return bet_lines
 
 def insert_open_bet_lines(cur, engine, bet_lines):
@@ -319,7 +321,7 @@ def insert_open_bet_lines(cur, engine, bet_lines):
     else:
         print(f"Couldn't update {errors} bet line(s).")
 
-    return "Success!"
+    return None
 
 def winloss(x):
     out = False
@@ -334,6 +336,9 @@ def update_closed_bets(cur, engine, bets):
     errors = 0
     bets['date_open'] = pd.to_datetime(bets['date_open']).dt.date
     bets['type'] = bets['type'].apply(lambda x: bet_type_parse(x))
+    bets['win'] = pd.to_numeric(bets['win'].str.replace(',',''))
+    bets['risk'] = pd.to_numeric(bets['risk'].str.replace(',',''))
+
 
     for index, line in bets.iterrows():
         try:
@@ -386,6 +391,7 @@ def team_odds_result_parse(x):
         team = string.capwords(' '.join(x.split()[1:-2]).lower())
         won = winloss(x.split()[-1])
         odds_wager = x.split()[-2]
+
     return [team, won, odds_wager]
 
 def clean_closed_bet_lines(engine, bet_lines):
@@ -425,7 +431,6 @@ def update_closed_bet_lines(cur, engine, bet_lines):
     errors = 0
 
     bet_lines = clean_closed_bet_lines(engine, bet_lines)
-
     for index, line in bet_lines.iterrows():
        try:
             values.append([str(line.bet_id), str(line.line_number), str(line.wager_type), str(line.odds), str(line.game_id), str(float(line.points.replace('½', '.5'))), str(line.team_id), str(line.team_long), str(line.won)])
@@ -465,7 +470,22 @@ def update_closed_bet_lines(cur, engine, bet_lines):
     else:
         print(f"Couldn't update {errors} bet line(s)")
 
-    return "Success!"
+    return None
+
+def bet_close_dates(engine, cur):
+    # Add correct close date
+    for bet in list(pd.read_sql("SELECT bet_id FROM bet_lines GROUP BY bet_id", engine).bet_id):
+        sql = (f"""
+                SELECT MAX(game_start) as max_date
+                FROM bet_lines l
+                LEFT OUTER JOIN games g
+                ON l.game_id = g.id
+                WHERE l.bet_id = {bet}
+                """)
+        max_date = str(pd.read_sql(sql, engine).iloc[0]['max_date'].date())
+        cur.execute(f"UPDATE open_bets SET date_close = '{max_date}' WHERE id = {bet}")
+        
+    return None
 
 
 def get_bets(engine, cur, browser):
@@ -493,16 +513,17 @@ def get_bets(engine, cur, browser):
         update_closed_bet_lines(cur, engine, bet_lines)
         print("Finished page; navigate to next page.")
         cont = input("Scrape another page? (y/n)\n")
-
-    # cur.close()
-    # engine.dispose()
-    print("Goodbye!")
+    bet_close_dates(engine, cur)
 
     return None
 
 
+
+
+
 if __name__ == "__main__":
     browser = setup_selenium()
+    engine, cur = setup()
     get_bets(browser)
     cur.close()
     engine.dispose()
@@ -511,7 +532,6 @@ if __name__ == "__main__":
 
 
 #TEST
-
 
 
 

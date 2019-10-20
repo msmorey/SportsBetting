@@ -16,7 +16,10 @@ def loop_scores(cur, engine, year, week):
 
     while elapsed < 240:
         os.system('cls' if os.name == 'nt' else 'clear')
-        print("Press 'enter' to end script or update bets\n\n")
+        print("\nPress 'enter' to end script or update bets\n")
+        print("---------------------------------------------------------------------------------------------")
+        print(tabulate(pd.read_sql("SELECT * FROM seven_day_bet_status", engine), headers= 'keys', showindex = False, tablefmt = 'fancy_grid'))
+        print("---------------------------------------------------------------------------------------------")
         while len(old_dfs) >5:
             del old_dfs[0]
         if len(old_dfs) > 0:
@@ -27,7 +30,7 @@ def loop_scores(cur, engine, year, week):
         old_dfs.append(df[['delta', 'team', 'points']].copy())
         df = df.rename(columns = {'delta': 'n_delta', 'f_delta':'delta', 'time_remaining':'time'})
         try:
-            print(tabulate(df[['score', 'time', 'yardline', 'team', 'points', 'delta', 'closeness']]\
+            print(tabulate(df[['score', 'time', 'yardline', 'team', 'points', 'delta', 'closeness', 'money']]\
             .sort_values(by = ['closeness'], ascending = False), headers = 'keys', showindex = False, tablefmt = 'fancy_grid'))
         except KeyError:
             print('No games found!')
@@ -42,7 +45,7 @@ def loop_scores(cur, engine, year, week):
             else:
                 p = "-   "
             print(p, end = '\r')
-        # nfl.update_games(cur, year, week)
+        nfl.update_games(cur, year, week)
         time.sleep(.5)
         if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
             line = input()
@@ -50,11 +53,9 @@ def loop_scores(cur, engine, year, week):
 
 def meat_and_potatoes():
     engine, cur = nfl.setup()
-    year = int(input("What year is it?\n"))
-    week = int(input("What NFL week is it?\n"))
 
-    print("\nSetting up games...\n\n")
-    nfl.create_games_rows(cur, year, week)
+    print("Setting up games...\n")
+    year, week = nfl.create_games_rows(cur)
 
     print('Gathering bets:\n')
     browser = myBookie.setup_selenium()
@@ -78,12 +79,6 @@ if __name__ == '__main__':
 
 # END
 # TEST
-tabulate(df[['score', 'time_remaining', 'team', 'points', 'delta', 'closeness']]\
-.sort_values(by = ['closeness'], ascending = False), headers = 'keys', showindex = False, tablefmt = 'grid').split('\n')
-
-
-
-
 
 
 

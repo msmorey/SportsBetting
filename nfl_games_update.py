@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 import nflgame
+from nflgame import live
 import configparser
 import time
 import sys
@@ -43,7 +44,8 @@ def populate_teams_table(engine):
 
     return "Success!"
 
-def create_games_rows(cur, year, week):
+def create_games_rows(cur):
+    year, week = live.current_year_and_week()
     games = nflgame.games(year, week=week)
     values = []
 
@@ -62,7 +64,7 @@ def create_games_rows(cur, year, week):
         """)
         cur.execute(sql)
 
-    return "Success!"
+    return [year, week]
 
 def update_games(cur, year, week):
     games = nflgame.games(year, week=week)
@@ -124,7 +126,7 @@ def update_games(cur, year, week):
         cur.execute(sql)
     cur.execute("UPDATE games SET posteam = NULL WHERE posteam = ''; UPDATE games SET yardline = NULL WHERE yardline = ''")
 
-    return "Success!"
+    return None
 
 
 if __name__ == '__main__':
@@ -136,7 +138,3 @@ if __name__ == '__main__':
 
 
 # TEST
-
-games = nflgame.games(2019, 6)
-len(games)
-game = games[13]
